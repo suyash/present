@@ -109,11 +109,26 @@ func updateKey(key []int, roundCounter int) {
 
 // Encrypt encrypts the passed 64 bit state with the passed 80 bit key
 func Encrypt(state, key []int) {
+	c1 := make(chan bool)
+	c2 := make(chan bool)
+
 	for i := 1; i < 32; i++ {
 		addRoundKey(state, getRoundKey(key))
-		updateKey(key, i)
-		sBoxLayer(state)
-		pLayer(state)
+
+		go func() {
+			updateKey(key, i)
+			c1 <- true
+		}()
+
+		go func() {
+			sBoxLayer(state)
+			pLayer(state)
+			c2 <- true
+		}()
+
+		<-c1
+		<-c2
 	}
+
 	addRoundKey(state, getRoundKey(key))
 }
