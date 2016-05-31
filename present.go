@@ -1,5 +1,7 @@
 package present
 
+import "sync"
+
 func addRoundKey(state, roundKey []int) {
 	for i := 0; i < 64; i++ {
 		state[i] = state[i] ^ roundKey[i]
@@ -109,25 +111,25 @@ func updateKey(key []int, roundCounter int) {
 
 // Encrypt encrypts the passed 64 bit state with the passed 80 bit key
 func Encrypt(state, key []int) {
-	c1 := make(chan bool)
-	c2 := make(chan bool)
+	var wg sync.WaitGroup
 
 	for i := 1; i < 32; i++ {
 		addRoundKey(state, getRoundKey(key))
 
+		wg.Add(2)
+
 		go func() {
 			updateKey(key, i)
-			c1 <- true
+			wg.Done()
 		}()
 
 		go func() {
 			sBoxLayer(state)
 			pLayer(state)
-			c2 <- true
+			wg.Done()
 		}()
 
-		<-c1
-		<-c2
+		wg.Wait()
 	}
 
 	addRoundKey(state, getRoundKey(key))
